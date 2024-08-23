@@ -16,7 +16,8 @@ For HTTPS, you would need to use OpenSSL library or some other SSL/TLS library f
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE (12 * 1024 * 1024)
+static char response[BUFFER_SIZE];
 
 // Function to create a socket, connect to the server, and send an HTTP GET request
 int http_get_request(const char *hostname, const char *path, int port, char *response) {
@@ -72,7 +73,7 @@ int http_get_request(const char *hostname, const char *path, int port, char *res
 }
 
 int main() {
-    char response[BUFFER_SIZE];
+    //char response[BUFFER_SIZE];
 
 /* Download the file from GDrive using public link */
 #if 0
@@ -81,17 +82,24 @@ int main() {
 #endif
 
 /* Download the file from Public Github Repo*/
-#if 1
-    const char *hostname = "raw.githubusercontent.com";
+#if 0
+    const char *hostname = "www.github.com";
     const char *path = "/sachinites/IDM/main/README.md";
 #endif
+
+#if 1
+    const char *hostname = "mirror2.internetdownloadmanager.com";
+    const char *path = "/idman642build20.exe";
+#endif
+
 
     int port = 80;
 
     int bytes_received = http_get_request(hostname, path, port, response);
     if (bytes_received > 0) {
         // Parse response and extract file data here
-        printf("Response:\n%s\n", response);
+        //printf("Response:\n%s\n", response);
+	  printf ("Finished\n");
     } else {
         printf("Failed to download file\n");
     }

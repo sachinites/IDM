@@ -11,7 +11,6 @@ typedef uint8_t state_id_t;
 typedef uint8_t fsm_event_id_t;
 
 #define TT_TABLE_MAX_SIZE   10
-#define FSM_STATE_EVENT_TIMER_EXPIRY (TT_TABLE_MAX_SIZE -1)
 
 typedef struct efsm_state_ efsm_state_t;
 typedef struct efsm_ efsm_t;
@@ -20,15 +19,6 @@ typedef bool (*action_fn)(efsm_t *);
 #define FSM_NO_ACTION ((action_fn)NULL)
 #define FSM_NO_STATE_TRANSITION ((efsm_state_t *)NULL)
 #define STATE_EVENT_TT_ENTRY(action_fn, next_state) {action_fn, next_state}
-
-static bool 
-fsm_invalid_action(efsm_t *efsm) {
-    
-    assert(0);
-    return true;
-}
-
-#define FSM_INVAID_ACTION   ((action_fn)fsm_invalid_action)
 
 typedef struct transition_table_entry_ {
 

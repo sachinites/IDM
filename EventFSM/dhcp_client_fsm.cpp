@@ -319,7 +319,7 @@ dhcp_client_new_efsm() {
 int main(int argc, char **argv) {
 
     efsm_t *efsm = dhcp_client_new_efsm();
-    efsm_execute(efsm, DHCP_CLIENT_EVENT_SEND_DISCOVER);
+    //efsm_execute(efsm, DHCP_CLIENT_EVENT_SEND_DISCOVER);
     //efsm_execute(efsm, DHCP_CLIENT_EVENT_RECV_OFFER);
     //efsm_execute(efsm, DHCP_CLIENT_EVENT_RECV_ACK);
     pause();

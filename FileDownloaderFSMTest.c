@@ -1,4 +1,5 @@
 #include "EventFSM/fsm.h"
+#include "FileDownloaderStates.h"
 
 extern efsm_t *
 file_downloader_new_efsm(void *user_data);

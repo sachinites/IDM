@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "EventFSM/fsm.h"
 #include "FileDownloaderStates.h" 
 
@@ -46,6 +47,9 @@ extern bool fd_action_free_all_resources(efsm_t *efsm);
 extern bool fd_action_connect(efsm_t *efsm);
 extern bool fd_action_connected(efsm_t *efsm);
 extern bool fd_action_suspended_dnloader_thread(efsm_t *efsm);
+extern bool fd_action_file_download(efsm_t * efsm);
+extern bool fd_action_reset_downloader(efsm_t * efsm);
+
 
 static const transition_table_entry_t trans_table_fd_state_init[] = {
 
@@ -282,7 +286,7 @@ static const transition_table_entry_t trans_table_fd_state_dnload_finished[] = {
                 STATE_EVENT_TT_ENTRY(FSM_INVAID_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_START
-                STATE_EVENT_TT_ENTRY(fd_action_reset_dnloader,
+                STATE_EVENT_TT_ENTRY(fd_action_reset_downloader,
                     &file_downloader_states[DNLOAD_STATE_INIT]),
 
                 // DNLOAD_EVENT_CLEANUP
@@ -346,31 +350,31 @@ efsm_t *
 file_downloader_new_efsm(void *user_data) {
 
     efsm_state_t *state = &file_downloader_states[DNLOAD_STATE_INIT];
-    state->trans_table.tte_array = trans_table_fd_state_init;
+    state->trans_table.tte_array = &trans_table_fd_state_init;
 
     state = &file_downloader_states[DNLOAD_STATE_IN_PROGRESS];
-    state->trans_table.tte_array = trans_table_fd_state_in_progress;
+    state->trans_table.tte_array = &trans_table_fd_state_in_progress;
 
     state = &file_downloader_states[DNLOAD_STATE_SUSPENDED];
-    state->trans_table.tte_array = trans_table_fd_state_suspended;
+    state->trans_table.tte_array = &trans_table_fd_state_suspended;
 
     state = &file_downloader_states[DNLOAD_STATE_CONNECTION_IN_PROGRESS];
-    state->trans_table.tte_array = trans_table_fd_state_connection_in_progress;
+    state->trans_table.tte_array = &trans_table_fd_state_connection_in_progress;
 
     state = &file_downloader_states[DNLOAD_STATE_CONNECTION_FAILED];
-    state->trans_table.tte_array = trans_table_fd_state_connection_connection_failed;
+    state->trans_table.tte_array = &trans_table_fd_state_connection_connection_failed;
 
     state = &file_downloader_states[DNLOAD_STATE_CONNECTED];
-    state->trans_table.tte_array = trans_table_fd_state_connection_connected;
+    state->trans_table.tte_array = &trans_table_fd_state_connection_connected;
 
     state = &file_downloader_states[DNLOAD_STATE_DNLOAD_FINISHED];
-    state->trans_table.tte_array = trans_table_fd_state_dnload_finished;
+    state->trans_table.tte_array = &trans_table_fd_state_dnload_finished;
 
     state = &file_downloader_states[DNLOAD_STATE_DONE];
-    state->trans_table.tte_array = trans_table_fd_state_done;
+    state->trans_table.tte_array = &trans_table_fd_state_done;
 
     /* Initiate Timers Here */
-    efsm_t *efsm = efsm_new(user_data, DNLOAD_STATE_MAX);
+    efsm_t *efsm = efsm_new(user_data);
     efsm->initial_state = &file_downloader_states[DNLOAD_STATE_INIT];
     efsm->state_print = file_downloader_state_tostring;
     efsm->event_print =  file_downloader_event_tostring;

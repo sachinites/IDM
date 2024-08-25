@@ -87,8 +87,8 @@ file_downloader_event_tostring (int event) {
 			return "DNLOAD_EVENT_RESUME";
 		case DNLOAD_EVENT_START:
 			return "DNLOAD_EVENT_START";
-		case DNLOAD_STATE_CLEANUP:
-			return "DNLOAD_STATE_CLEANUP";
+		case DNLOAD_EVENT_CLEANUP:
+			return "DNLOAD_EVENT_CLEANUP";
 		case DNLOAD_EVENT_RECONNECT:
 			return "DNLOAD_EVENT_RECONNECT";
 		case DNLOAD_EVENT_FINISHED:

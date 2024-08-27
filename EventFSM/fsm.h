@@ -70,4 +70,7 @@ efsm_start_event_listener (efsm_t *efsm);
 
 void efsm_fire_event (efsm_t *efsm, int event);
 
+void *
+efsm_get_user_data (efsm_t * efsm);
+
 #endif 

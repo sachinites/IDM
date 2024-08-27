@@ -10,7 +10,7 @@ typedef enum DownLoader_STATES_ {
 	DNLOAD_STATE_INIT,
 
 	/* HEAD STATES */
-	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRRESS,
+	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS,
 	DNLOAD_STATE_HEAD_CONNECTED,
 	DNLOAD_STATE_HEAD_CONNECTION_FAILED,
 
@@ -59,18 +59,26 @@ file_downloader_state_tostring (state_id_t state_id) {
 
 		case DNLOAD_STATE_INIT:
 			return "DNLOAD_STATE_INIT";
-		case DNLOAD_STATE_IN_PROGRESS:
-			return "DNLOAD_STATE_IN_PROGRESS";
-		case DNLOAD_STATE_SUSPENDED:
-			return "DNLOAD_STATE_SUSPENDED";
-		case DNLOAD_STATE_CONNECTION_IN_PROGRESS:
-			return "DNLOAD_STATE_CONNECTION_IN_PROGRESS";
-		case DNLOAD_STATE_CONNECTION_FAILED:
-			return "DNLOAD_STATE_CONNECTION_FAILED";
-		case DNLOAD_STATE_CONNECTED:
-			return "DNLOAD_STATE_CONNECTED";
-		case DNLOAD_STATE_DNLOAD_FINISHED:
-			return "DNLOAD_STATE_DNLOAD_FINISHED";
+		case DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS:
+			return "DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS";
+		case DNLOAD_STATE_HEAD_CONNECTED:
+			return "DNLOAD_STATE_HEAD_CONNECTED";
+		case DNLOAD_STATE_HEAD_CONNECTION_FAILED:
+			return "DNLOAD_STATE_HEAD_CONNECTION_FAILED";
+		case DNLOAD_STATE_FD_CONNECT_IN_PROGRESS:
+			return "DNLOAD_STATE_FD_CONNECT_IN_PROGRESS";
+		case DNLOAD_STATE_FD_CONNECTED:
+			return "DNLOAD_STATE_FD_CONNECTED";
+		case DNLOAD_STATE_FD_CONNECTION_FAILED:
+			return "DNLOAD_STATE_FD_CONNECTION_FAILED";
+		case DNLOAD_STATE_FD_IN_PROGRESS:
+			return "DNLOAD_STATE_FD_IN_PROGRESS";
+		case DNLOAD_STATE_FD_SUSPENDED:
+			return "DNLOAD_STATE_FD_SUSPENDED";
+		case DNLOAD_STATE_FD_CANCELLED:
+			return "DNLOAD_STATE_FD_CANCELLED";
+		case DNLOAD_STATE_FD_FINISHED:
+			return "DNLOAD_STATE_FD_FINISHED";
 		case DNLOAD_STATE_DONE:
 			return "DNLOAD_STATE_DONE";
 		case DNLOAD_STATE_MAX:
@@ -103,6 +111,8 @@ file_downloader_event_tostring (int event) {
 			return "DNLOAD_EVENT_LOST_CONNECTION";
 		case DNLOAD_EVENT_CONNECT_SUCCESS:
 			return "DNLOAD_EVENT_CONNECT_SUCCESS";
+		case DNLOAD_EVENT_CONNECT_FAILED:
+			return "DNLOAD_EVENT_CONNECT_FAILED";
 		case DNLOAD_EVENT_MAX:
 			return "DNLOAD_EVENT_MAX";
 		default:;
@@ -117,7 +127,7 @@ file_downloader_event_tostring (int event) {
  * DNLOAD_EVENT_CANCEL     	NA
  * DNLOAD_EVENT_PAUSE      	NA
  * DNLOAD_EVENT_RESUME     	NA
- * DNLOAD_EVENT_START      	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRRESS     try to establish connection with server
+ * DNLOAD_EVENT_START      	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS     try to establish connection with server
  * DNLOAD_STATE_CLEANUP    	NA
  * DNLOAD_EVENT_RECONNECT  	NA					
  * DNLOAD_EVENT_FINISHED   	NA
@@ -125,7 +135,7 @@ file_downloader_event_tostring (int event) {
  * DNLOAD_EVENT_CONNECT_SUCCESS NA
  * DNLOAD_EVENT_CONNECT_FAILED  NA 
  *
- * Initial State : DNLOAD_STATE_HEAD_CONNECT_IN_PROGRRESS
+ * Initial State : DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS
  
  * DNLOAD_EVENT_CANCEL     	DNLOAD_STATE_DONE			   cancel connector thread, release all resources
  * DNLOAD_EVENT_PAUSE      	DNLOAD_STATE_HEAD_CONNECTION_FAILED	   cancel connector thread, release all resources
@@ -158,7 +168,7 @@ file_downloader_event_tostring (int event) {
  * DNLOAD_EVENT_RESUME     	NA
  * DNLOAD_EVENT_START      	NA
  * DNLOAD_STATE_CLEANUP    	DNLOAD_STATE_DONE			   close the conneciton, release all resources
- * DNLOAD_EVENT_RECONNECT  	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRRESS     start the connect-retry thread					
+ * DNLOAD_EVENT_RECONNECT  	DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS     start the connect-retry thread					
  * DNLOAD_EVENT_FINISHED   	NA
  * DNLOAD_EVENT_LOST_CONNECTION NA
  * DNLOAD_EVENT_CONNECT_SUCCESS NA
@@ -166,7 +176,7 @@ file_downloader_event_tostring (int event) {
  *
  * Initial State : DNLOAD_STATE_FD_CONNECT_IN_PROGRESS
  *
- * DNLOAD_EVENT_CANCEL     	DNLOAD_STATE_FD_CANCELLE		   release all resources
+ * DNLOAD_EVENT_CANCEL     	DNLOAD_STATE_FD_CANCELLED		   release all resources
  * DNLOAD_EVENT_PAUSE      	DNLOAD_STATE_FD_CONNECTION_FAILED	   release all resources
  * DNLOAD_EVENT_RESUME     	NA
  * DNLOAD_EVENT_START      	NA
@@ -205,7 +215,7 @@ file_downloader_event_tostring (int event) {
  *
  * Initial State : DNLOAD_STATE_FD_IN_PROGRESS
  *
- * DNLOAD_EVENT_CANCEL     	DDNLOAD_STATE_FD_CANCELLED		   release all resources
+ * DNLOAD_EVENT_CANCEL    DNLOAD_STATE_FD_CANCELLED		   release all resources
  * DNLOAD_EVENT_PAUSE      	DNLOAD_STATE_FD_SUSPENDED 		   close the connection, remember the bytes saved
  * DNLOAD_EVENT_RESUME     	NA
  * DNLOAD_EVENT_START      	NA
@@ -218,7 +228,7 @@ file_downloader_event_tostring (int event) {
  *
  * Initial State : DNLOAD_STATE_FD_SUSPENDED
  *
- * DNLOAD_EVENT_CANCEL     	DDNLOAD_STATE_FD_CANCELLED    		   Free all resources 
+ * DNLOAD_EVENT_CANCEL     	DNLOAD_STATE_FD_CANCELLED    		   Free all resources 
  * DNLOAD_EVENT_PAUSE           NA
  * DNLOAD_EVENT_RESUME     	DNLOAD_STATE_FD_CONNECT_IN_PROGRESS	   connect to server again
  * DNLOAD_EVENT_START      	DNLOAD_STATE_FD_CONNECT_IN_PROGRESS	   connect to server again

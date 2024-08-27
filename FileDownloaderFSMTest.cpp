@@ -1,13 +1,17 @@
+#include <stdlib.h>
+#include <memory.h>
 #include "EventFSM/fsm.h"
 #include "FileDownloaderStates.h"
+#include "FileDownLoader.h"
 
 extern efsm_t *
-file_downloader_new_efsm(void *user_data);
+file_downloader_new_efsm (FD *file_downloader_instance) ;
 
 int
 main (int argc, char *argv[]) {
 
-    efsm_t *efsm = file_downloader_new_efsm(NULL);
+    FD *fd = new HTTP_FD();
+    efsm_t *efsm = file_downloader_new_efsm(fd);
     efsm_start_event_listener(efsm);
 
     /* Now Fire Evevents on FSM */
@@ -20,8 +24,7 @@ main (int argc, char *argv[]) {
     efsm_fire_event(efsm, DNLOAD_EVENT_START);
     efsm_fire_event(efsm, DNLOAD_EVENT_FINISHED);
     efsm_fire_event(efsm, DNLOAD_EVENT_CLEANUP);
-
-    efsm_destroy (efsm);
-
+    
+    pthread_exit(0);
     return 0;
 }

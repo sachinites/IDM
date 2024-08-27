@@ -123,3 +123,9 @@ void
 efsm_destroy (efsm_t *efsm) {
 
 }
+
+void *
+efsm_get_user_data (efsm_t * efsm) {
+
+    return efsm->user_data;
+}

@@ -34,7 +34,7 @@ main (int argc, char *argv[]) {
     efsm_fire_event(efsm, DNLOAD_EVENT_CONNECT_SUCCESS);
     efsm_fire_event(efsm, DNLOAD_EVENT_START);
     efsm_fire_event(efsm, DNLOAD_EVENT_FINISHED);
-    efsm_fire_event(efsm, DNLOAD_EVENT_CLEANUP);
+    efsm_fire_event(efsm, DNLOAD_EVENT_ERROR);
     #endif
     pthread_exit(0);
     return 0;

@@ -66,20 +66,19 @@ efsm_execute (efsm_t *efsm, int event) {
     if (efsm->event_print)
         printf ("Executing Event %s", efsm->event_print(event));
     else
-	printf ("Eecuting Event %d", event);
+	    printf ("Eecuting Event %d", event);
 
     if (efsm->state_print) 
         printf (" on state %s\n", efsm->state_print(efsm->current_state->id));
     else
         printf (" on state %d\n", efsm->current_state->id);
 
-
    efsm->event_triggered = event;
    action_fn_cbk = efsm->current_state->trans_table.tte_array[0][event].action_fn_cbk;
    next_state = efsm->current_state->trans_table.tte_array[0][event].next_state;
 
    if (next_state) {
-   	efsm_state_exit (efsm);
+   	    efsm_state_exit (efsm);
         efsm_state_enter (efsm, next_state);
    }
 

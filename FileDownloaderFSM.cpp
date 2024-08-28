@@ -35,7 +35,8 @@ static efsm_state_t file_downloader_states[] = {
     file_dnloader_DNLOAD_STATE_HEAD_GET_RESPONSE_AWAIT_exit_fn, {NULL}},
 
     {DNLOAD_STATE_FD_CONNECT_IN_PROGRESS, false, 
-    file_dnloader_default_state_entry_fn, file_dnloader_default_state_exit_fn, {NULL}},
+    file_dnloader_default_state_entry_fn, 
+    file_downloader_DNLOAD_STATE_FD_CONNECT_IN_PROGRESS_exit_fn, {NULL}},
 
     {DNLOAD_STATE_FD_CONNECTED, false, 
     file_dnloader_default_state_entry_fn, file_dnloader_default_state_exit_fn, {NULL}},
@@ -55,7 +56,7 @@ static efsm_state_t file_downloader_states[] = {
     {DNLOAD_STATE_FD_FINISHED, false, 
     file_dnloader_default_state_entry_fn, file_dnloader_default_state_exit_fn, {NULL}},            
 
-    {DNLOAD_STATE_DONE, false, 
+    {DNLOAD_STATE_ERROR, false, 
     file_dnloader_default_state_entry_fn, file_dnloader_default_state_exit_fn, {NULL}}
 
 };
@@ -64,7 +65,6 @@ extern bool fd_action_free_all_resources(efsm_t *efsm);
 extern bool fd_action_connect(efsm_t *efsm);
 extern bool fd_action_connected(efsm_t *efsm);
 extern bool fd_action_suspended_dnloader_thread(efsm_t *efsm);
-extern bool fd_action_file_download(efsm_t * efsm);
 extern bool fd_action_reset_downloader(efsm_t * efsm);
 
 
@@ -78,6 +78,14 @@ extern bool fd_action_state_head_connect_in_progress_action_failed (efsm_t *efsm
 
 extern bool fd_action_state_head_connected_action_start (efsm_t *efsm) ;
 extern bool fd_action_state_head_connected_action_cancelled (efsm_t *efsm) ;
+extern bool fd_action_connect_for_file_download (efsm_t *efsm) ;
+extern bool fd_action_state_head_get_response_await_timeout (efsm_t *efsm) ;
+
+extern bool fd_action_state_fd_connect_in_progress_action_success (efsm_t *efsm) ;
+extern bool fd_action_state_fd_connect_in_progress_action_failed (efsm_t *efsm) ;
+extern bool fd_action_file_download(efsm_t * efsm);
+extern bool fd_action_file_download_finished (efsm_t *efsm) ;
+extern bool fd_cancelled (efsm_t *efsm) ;
 
 static transition_table_entry_t trans_table_fd_state_init[] = {
 
@@ -97,7 +105,7 @@ static transition_table_entry_t trans_table_fd_state_init[] = {
                 STATE_EVENT_TT_ENTRY(fd_action_state_init_action_start, 
                     &file_downloader_states[DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS]),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(
                     FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
@@ -126,7 +134,7 @@ static const transition_table_entry_t trans_table_fd_state_head_connect_in_progr
 
                 // DNLOAD_EVENT_CANCEL
                 STATE_EVENT_TT_ENTRY(fd_action_state_head_connect_in_progress_action_cancelled, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_PAUSE
                 STATE_EVENT_TT_ENTRY(fd_action_state_head_connect_in_progress_action_pause,
@@ -140,7 +148,7 @@ static const transition_table_entry_t trans_table_fd_state_head_connect_in_progr
                 STATE_EVENT_TT_ENTRY(
                     FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(
                     FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
@@ -180,7 +188,7 @@ static const transition_table_entry_t trans_table_fd_state_head_connected[] = {
                 STATE_EVENT_TT_ENTRY(fd_action_state_head_connected_action_start,
                     &file_downloader_states[DNLOAD_STATE_HEAD_GET_RESPONSE_AWAIT]),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(
                     FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
@@ -218,9 +226,9 @@ static const transition_table_entry_t trans_table_fd_state_head_connection_faile
                 STATE_EVENT_TT_ENTRY(
                     FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, 
@@ -254,19 +262,19 @@ static const transition_table_entry_t trans_table_fd_state_head_get_response_awa
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_FINISHED
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
+                STATE_EVENT_TT_ENTRY(fd_action_connect_for_file_download,
                     &file_downloader_states[DNLOAD_STATE_FD_CONNECT_IN_PROGRESS]),
 
                 // DNLOAD_EVENT_LOST_CONNECTION
-                STATE_EVENT_TT_ENTRY(fd_action_restart_downloader,
-                    &file_downloader_states[DNLOAD_STATE_INIT]),
+                STATE_EVENT_TT_ENTRY(fd_action_state_head_get_response_await_timeout ,
+                    &file_downloader_states[DNLOAD_STATE_HEAD_CONNECTION_FAILED]),
 
                 // DNLOAD_EVENT_CONNECT_SUCCESS
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -292,9 +300,9 @@ static const transition_table_entry_t trans_table_fd_state_connection_connect_in
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -306,11 +314,11 @@ static const transition_table_entry_t trans_table_fd_state_connection_connect_in
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_CONNECT_SUCCESS
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
+                STATE_EVENT_TT_ENTRY(fd_action_state_fd_connect_in_progress_action_success, 
                     &file_downloader_states[DNLOAD_STATE_FD_CONNECTED]),                 
 
                 // DNLOAD_EVENT_CONNECT_FAILED
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
+                STATE_EVENT_TT_ENTRY(fd_action_state_fd_connect_in_progress_action_failed,
                     &file_downloader_states[DNLOAD_STATE_FD_CONNECTION_FAILED])
 };
 
@@ -327,12 +335,12 @@ static const transition_table_entry_t trans_table_fd_state_connected[] = {
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_START
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
+                STATE_EVENT_TT_ENTRY(fd_action_file_download, 
                     &file_downloader_states[DNLOAD_STATE_FD_IN_PROGRESS]),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -365,9 +373,9 @@ static const transition_table_entry_t trans_table_fd_state_connection_failed [] 
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
@@ -402,15 +410,15 @@ static const transition_table_entry_t trans_table_fd_state_fd_in_progress[] = {
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_FINISHED
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
+                STATE_EVENT_TT_ENTRY(fd_action_file_download_finished, 
                     &file_downloader_states[DNLOAD_STATE_FD_FINISHED]),
 
                 // DNLOAD_EVENT_LOST_CONNECTION
@@ -441,9 +449,9 @@ static const transition_table_entry_t trans_table_fd_state_fd_suspended [] = {
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
                     &file_downloader_states[DNLOAD_STATE_FD_CONNECT_IN_PROGRESS]),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
@@ -476,9 +484,8 @@ static const transition_table_entry_t trans_table_fd_state_fd_cancelled [] = {
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
-                STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                // DNLOAD_EVENT_ERROR
+                STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -511,9 +518,9 @@ static const transition_table_entry_t trans_table_fd_state_fd_finished [] = {
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
                     &file_downloader_states[DNLOAD_STATE_INIT]),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -545,9 +552,9 @@ static const transition_table_entry_t trans_table_fd_state_fd_done [] = {
                 // DNLOAD_EVENT_START
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
 
-                // DNLOAD_EVENT_CLEANUP
+                // DNLOAD_EVENT_ERROR
                 STATE_EVENT_TT_ENTRY(fd_action_free_all_resources, 
-                    &file_downloader_states[DNLOAD_STATE_DONE]),
+                    &file_downloader_states[DNLOAD_STATE_ERROR]),
 
                 // DNLOAD_EVENT_RECONNECT
                 STATE_EVENT_TT_ENTRY(FSM_NO_ACTION, FSM_NO_STATE_TRANSITION),
@@ -609,7 +616,7 @@ file_downloader_fsm_init () {
     state = &file_downloader_states[DNLOAD_STATE_FD_FINISHED];
     state->trans_table.tte_array = &trans_table_fd_state_fd_finished;
 
-    state = &file_downloader_states[DNLOAD_STATE_DONE];
+    state = &file_downloader_states[DNLOAD_STATE_ERROR];
     state->trans_table.tte_array = &trans_table_fd_state_fd_done;
 
     fsm_init = true;

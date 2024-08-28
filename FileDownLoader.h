@@ -28,7 +28,11 @@ class FD {
         pthread_t *downloader_thread;
         virtual bool HeadConnectServer() = 0;
         virtual void HeadSendGetRequest() = 0;
-        void Reset();
+        virtual void FileDownloadConnectServer() = 0;
+        virtual void FileDownload() = 0;
+        virtual void CleanupDnloadResources() = 0;
+        virtual void AssembleChunks() = 0;
+        virtual void Cancel () = 0;
 };
 
 #define HTTP_READ_BUFFER_SIZE   4096
@@ -47,6 +51,11 @@ class HTTP_FD : public FD {
 
         virtual bool HeadConnectServer( ) final;
         virtual void HeadSendGetRequest() final;
+        virtual void FileDownloadConnectServer() final;
+        virtual void FileDownload() final;
+        virtual void CleanupDnloadResources() final;
+        virtual void AssembleChunks() final;
+        virtual void Cancel () final;
 } ;
 
 #endif 

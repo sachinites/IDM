@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <mqueue.h>
+#include <semaphore.h>
 
 typedef uint8_t state_id_t;
 typedef uint8_t fsm_event_id_t;
@@ -28,7 +29,7 @@ typedef struct transition_table_entry_ {
 
 typedef struct transition_table_ {
 
-    transition_table_entry_t (*tte_array)[TT_TABLE_MAX_SIZE];
+    const transition_table_entry_t (*tte_array)[TT_TABLE_MAX_SIZE];
 
 } transition_table_t;
 
@@ -55,6 +56,9 @@ struct efsm_ {
 
     /* Event Submission Named Queue*/   
     int pipefd[2]; 
+
+    /* Zero semaphore to implement synchornous calls */
+    sem_t zsem; 
 };
 
 /* APIs */
@@ -69,6 +73,7 @@ void
 efsm_start_event_listener (efsm_t *efsm);
 
 void efsm_fire_event (efsm_t *efsm, int event);
+void efsm_fire_event_synchronous (efsm_t *efsm, int event);
 
 void *
 efsm_get_user_data (efsm_t * efsm);

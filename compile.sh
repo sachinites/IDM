@@ -5,9 +5,10 @@ rm -f *exe
 # compile the FSM library
 g++ -g -c EventFSM/fsm.cpp -o EventFSM/fsm.o -fpermissive
 
-# Compile the state machine and its Action Functions
+# Compile the state machine , Action Functions and Entry Exit Functions
 g++ -g -c FileDownloaderFSM.cpp -o FileDownloaderFSM.o -fpermissive
-g++ -g -c FileDownLoaderActions.cpp -o FileDownLoaderActions.o
+g++ -g -c FileDownLoaderFSMActions.cpp -o FileDownLoaderFSMActions.o
+g++ -g -c FileDownLoaderFSMStatesEntryExitFns.cpp -o FileDownLoaderFSMStatesEntryExitFns.o
 
 # File Downloaders
 g++ -g -c FileDownLoader.cpp -o FileDownLoader.o -fpermissive
@@ -17,8 +18,9 @@ g++ -g -c HTTP_FileDownLoader.cpp -o HTTP_FileDownLoader.o -fpermissive
 g++ -g -c FileDownloaderFSMTest.cpp -o FileDownloaderFSMTest.o -fpermissive
 g++ -g EventFSM/fsm.o \
             FileDownloaderFSM.o \
-            FileDownLoaderActions.o \
+            FileDownLoaderFSMActions.o \
             FileDownLoader.o \
             HTTP_FileDownLoader.o \
+            FileDownLoaderFSMStatesEntryExitFns.o \
             FileDownloaderFSMTest.o -o exe -lrt -lpthread
 

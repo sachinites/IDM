@@ -9,7 +9,7 @@ extern efsm_t *
 file_downloader_new_efsm () ;
 
 int
-main (int argc, char *argv[]) {
+main (int argc, char **argv) {
 
     /* Create a File Downloader Instance*/
     FD *fd = new HTTP_FD("");

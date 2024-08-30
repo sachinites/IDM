@@ -33,6 +33,7 @@ class FD {
         virtual void CleanupDnloadResources() = 0;
         virtual void AssembleChunks() = 0;
         virtual void Cancel () = 0;
+        virtual void Pause () = 0;
 };
 
 #define HTTP_READ_BUFFER_SIZE   4096
@@ -56,6 +57,7 @@ class HTTP_FD : public FD {
         virtual void CleanupDnloadResources() final;
         virtual void AssembleChunks() final;
         virtual void Cancel () final;
+        virtual void Pause () final;
 } ;
 
 #endif 

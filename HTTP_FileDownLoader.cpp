@@ -50,14 +50,15 @@ server_head_connect_fn (void *arg) {
         int portno = HTTP_DEFAULT_PORT;
     
         fd->sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
         if (fd->sockfd < 0) {
-            efsm_fire_event (fd->fsm, DNLOAD_EVENT_CONNECT_FAILED);
+            efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
             return NULL;
         }
     
         server = gethostbyname(fd->server_name.c_str());
         if (server == NULL) {
-            efsm_fire_event (fd->fsm, DNLOAD_EVENT_CONNECT_FAILED);
+            efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
             return NULL;
         }
     
@@ -90,10 +91,10 @@ server_head_connect_fn (void *arg) {
 bool
 HTTP_FD::HeadConnectServer( ) {
 
-    /* We dont have Skt fd, it means we are not connected to server */
     assert (this->sockfd == -1);
     assert (this->connector_thread == NULL);
     assert (this->downloader_thread == NULL);
+    assert (this->server_name.length() > 0); 
 
     this->connector_thread = (pthread_t *)calloc (1, sizeof(pthread_t));
 
@@ -221,6 +222,8 @@ http_file_download_thread_fn (void *arg) {
     free(read_buffer);
 
     if (fd->current_byte != fd->file_size) {
+        printf ("File Size Downloaded : %d, Actual file size : %d\n", 
+            fd->current_byte, fd->file_size); 
         efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
         return NULL;
     }
@@ -289,4 +292,33 @@ HTTP_FD::Cancel () {
 
     this->CleanupDnloadResources();
     remove ("idman642build20.exe");
+}
+
+void 
+HTTP_FD::Pause() {
+
+    assert (this->downloader_thread);
+    pthread_cancel(*this->downloader_thread);
+    pthread_join(*this->downloader_thread, NULL);
+    free(this->downloader_thread);
+    this->downloader_thread = NULL;
+
+    if (this->sockfd != -1) {
+        close (this->sockfd);
+        this->sockfd = -1;
+    }
+
+    if (this->read_buffer) {
+        free(this->read_buffer);
+        this->read_buffer = NULL;
+    }
+
+    this->read_buffer_size = 0;
+
+    // preserve below stats 
+
+    //this->current_byte = 0;
+    //this->file_size = 0;
+    //this->low_byte = 0;
+    //this->high_byte = 0;
 }

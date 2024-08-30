@@ -6,155 +6,30 @@
 #include "EventFSM/fsm.h"
 #include "FileDownLoader.h"
 #include "FileDownloaderStates.h"
+#include "FileDownLoaderFSMActions.h"
 
-/* Misc*/
-extern bool fd_action_restart_downloader (efsm_t *efsm) {
-
-	/* Releae all resources and then fire start event*/
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	return true;
-}
-
-/* Action Fn for State DNLOAD_STATE_INIT */
-extern bool fd_action_state_init_action_start (efsm_t *efsm) {
+bool fd_action_state_init_action_start_state_head_connect_in_progress (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
 	fd->HeadConnectServer();
+	return true;
+}
+
+bool fd_action_state_head_connect_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
     return true;
 }
 
-/* Action Fn for State DNLOAD_STATE_HEAD_CONNECT_IN_PROGRESS */
-extern bool fd_action_state_head_connect_in_progress_action_cancelled (efsm_t *efsm) {
+bool fd_action_state_head_connect_in_progress_action_pause_state_head_connection_failed (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-
-	if (fd->sockfd != -1) {
-		close (fd->sockfd);
-		fd->sockfd = -1;
-	}
-
-    return true;
-}
-
-extern bool fd_action_state_head_connect_in_progress_action_pause (efsm_t *efsm) {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-
-	if (fd->sockfd != -1) {
-		close (fd->sockfd);
-		fd->sockfd = -1;
-	}
-
-    return true;
-}
-
-extern bool fd_action_state_head_connect_in_progress_action_success (efsm_t *efsm) {
-
-	printf ("Head Connect to Server is Succesful\n");
-	efsm_fire_event (efsm, DNLOAD_EVENT_START);
+	fd->Cancel();  /* Cancel and Pause are same in terms of cleaning up FD resources*/
 	return true;
 }
 
-extern bool fd_action_state_head_connect_in_progress_action_failed (efsm_t *efsm) {
-
-	printf ("Head Connect to Server is Failed\n");
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-
-	if (fd->sockfd != -1) {
-		close (fd->sockfd);
-		fd->sockfd = -1;
-	}
-
-	return true;
-}
-
-/* Action Fn for State DNLOAD_STATE_HEAD_CONNECTED */
-
-extern bool fd_action_state_head_connected_action_start (efsm_t *efsm) {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->HeadSendGetRequest();
-	return true;
-}	
-
-extern bool fd_action_state_head_connected_action_cancelled (efsm_t *efsm) {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	if (fd->sockfd != -1) {
-		close (fd->sockfd);
-		fd->sockfd = -1;
-	}
-	return true;
-}
-
-/* Action Fn for State DNLOAD_STATE_HEAD_GET_RESPONSE_AWAIT */
-extern bool fd_action_connect_for_file_download (efsm_t *efsm) {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	assert (fd->sockfd == -1);
-	fd->FileDownloadConnectServer();
-	return true;
-}
-
-extern bool fd_action_state_head_get_response_await_timeout (efsm_t *efsm)  {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	if (fd->sockfd != -1) {
-		close (fd->sockfd);
-		fd->sockfd = -1;
-	}
-	efsm_fire_event (efsm, DNLOAD_EVENT_RECONNECT);
-	return true;
-}
-
-
-
-
-/* Action Fn for State DNLOAD_STATE_FD_CONNECT_IN_PROGRESS */
-extern bool fd_action_state_fd_connect_in_progress_action_success (efsm_t *efsm) {
-
-	printf ("FD Connect to Server is Succesful\n");
-	efsm_fire_event (efsm, DNLOAD_EVENT_START);
-	return true;
-}
-
-extern bool fd_action_state_fd_connect_in_progress_action_failed (efsm_t *efsm)  {
-
-	printf ("FD Connect to Server has failed\n");
-	efsm_fire_event (efsm, DNLOAD_EVENT_RECONNECT);
-	return true;
-}
-
-
-/* Action Fn for State DNLOAD_STATE_FD_CONNECTED */
-
-
-
-/* Action Fn for State DNLOAD_STATE_FD_IN_PROGRESS */
-extern bool fd_action_file_download(efsm_t * efsm) {
-
-	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->FileDownload();
-	return true;
-}
-
-
-extern bool 
-fd_action_file_download_finished (efsm_t *efsm) {
-
-    printf ("%s() Called ...\n", __FUNCTION__);
-
-    FD *fd = (FD *)efsm_get_user_data(efsm);
-    fd->AssembleChunks();
-    fd->CleanupDnloadResources();
-	delete fd;
-    return true;
-}
-
-extern bool fd_cancelled (efsm_t *efsm) {
-
-	printf ("%s() Called ...\n", __FUNCTION__);
+bool fd_action_state_head_connect_in_progress_action_error_state_error (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
 	fd->CleanupDnloadResources();
@@ -162,24 +37,221 @@ extern bool fd_cancelled (efsm_t *efsm) {
 	return true;
 }
 
+bool fd_action_state_head_connect_in_progress_action_success_state_head_connected (efsm_t *efsm) {
 
-extern bool fd_action_free_all_resources(efsm_t *efsm) {
-    return true;
-}
-
-
-extern bool fd_action_connect (efsm_t *efsm) {
-    return true;
-}
-
-extern bool fd_action_reset_downloader(efsm_t * efsm) {
+	printf ("Head Connection Successful\n");
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	assert (fd->connector_thread);
+	pthread_cancel 	(*(fd->connector_thread));
+	pthread_join (*(fd->connector_thread), NULL);
+	free (fd->connector_thread);
+	fd->connector_thread = NULL;
+	efsm_fire_event (efsm, DNLOAD_EVENT_START);
 	return true;
 }
 
-extern bool fd_action_connected(efsm_t *efsm) {
+bool fd_action_state_head_connect_in_progress_action_connect_failed_state_head_connection_failed (efsm_t *efsm) {
+
+	printf ("Head Connection Failed\n");
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
 	return true;
 }
 
-extern bool fd_action_suspended_dnloader_thread(efsm_t *efsm) {
+bool fd_action_state_head_connected_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_head_connected_action_start_state_head_get_response_await (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->HeadSendGetRequest();
+	return true;
+}
+
+bool fd_action_state_head_connection_failed_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_head_connection_failed_action_reconnect_state_head_connect_in_progress (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->HeadConnectServer();
+	return true;
+}
+
+bool fd_action_state_head_get_response_await_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	return true;
+}
+
+bool fd_action_state_head_get_response_await_action_error_state_error (efsm_t *efsm) {
+
+	/* Head Response from the server is not appropriate*/
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_head_get_response_await_action_finished_state_fd_connect_in_progress (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
+	fd->FileDownloadConnectServer();
+	return true;
+}
+
+bool fd_action_state_head_get_response_await_action_lost_connection_state_head_connection_failed (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
+	efsm_fire_event (efsm, DNLOAD_EVENT_RECONNECT);
+	return true;
+}
+
+bool fd_action_state_fd_connect_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	return true;
+}
+
+bool fd_action_state_fd_connect_in_progress_action_pause_state_init (efsm_t *efsm ) {
+	
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
+	return true;
+}
+
+bool fd_action_state_fd_connect_in_progress_action_error_state_error (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_fd_connect_in_progress_action_success_state_fd_connected (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	assert (fd->connector_thread);
+	pthread_cancel 	(*(fd->connector_thread));
+	pthread_join (*(fd->connector_thread), NULL);
+	free (fd->connector_thread);
+	fd->connector_thread = NULL;
+	efsm_fire_event (efsm, DNLOAD_EVENT_START);
+	return true;
+}
+
+bool fd_action_state_fd_connect_in_progress_action_failed_state_fd_connection_failed (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
+	return true;
+}
+
+bool fd_action_state_fd_connected_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	return true;
+}
+
+bool fd_action_state_fd_connected_action_start_state_fd_in_progress (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->FileDownload();
+	return true;
+}
+
+bool fd_action_state_fd_connection_failed_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	return true;
+}
+
+bool fd_action_state_fd_connection_failed_action_error_state_error (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	return true;
+}
+
+bool fd_action_state_fd_connection_failed_action_reconnect_state_fd_connect_in_progress (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->CleanupDnloadResources();
+	fd->FileDownloadConnectServer();
+	return true;
+}
+
+bool fd_action_state_fd_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	return true;
+}
+
+bool fd_action_state_fd_in_progress_action_pause_state_fd_suspended (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Pause();
+	return true;
+}
+
+bool fd_action_state_fd_in_progress_action_error_state_error (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_fd_in_progress_action_finished_state_fd_finished (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->AssembleChunks();
+	fd->CleanupDnloadResources();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_fd_in_progress_action_lost_connection_state_fd_connection_failed (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	assert (fd->downloader_thread);
+	pthread_cancel (*(fd->downloader_thread));
+	pthread_join (*(fd->downloader_thread), NULL);
+	free (fd->downloader_thread);
+	fd->downloader_thread = NULL;
+	assert (fd->sockfd != -1);
+	close (fd->sockfd);
+	fd->sockfd = -1;
+	efsm_fire_event (efsm, DNLOAD_EVENT_RECONNECT);
+	return true;
+}
+
+bool fd_action_state_fd_suspended_action_cancel_state_cancelled (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->Cancel();
+	delete fd;
+	return true;
+}
+
+bool fd_action_state_fd_suspended_action_resume_state_fd_connect_in_progress (efsm_t *efsm) {
+
+	FD *fd = (FD *)efsm_get_user_data(efsm);
+	fd->FileDownloadConnectServer();
 	return true;
 }

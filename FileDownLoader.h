@@ -34,6 +34,7 @@ class FD {
         virtual void AssembleChunks() = 0;
         virtual void Cancel () = 0;
         virtual void Pause () = 0;
+        virtual void ProgressBar() = 0;
 };
 
 #define HTTP_READ_BUFFER_SIZE   4096
@@ -58,6 +59,7 @@ class HTTP_FD : public FD {
         virtual void AssembleChunks() final;
         virtual void Cancel () final;
         virtual void Pause () final;
+        virtual void ProgressBar() final;
 } ;
 
 #endif 

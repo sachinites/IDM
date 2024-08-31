@@ -25,7 +25,7 @@ bool fd_action_state_head_connect_in_progress_action_cancel_state_cancelled (efs
 bool fd_action_state_head_connect_in_progress_action_pause_state_head_connection_failed (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();  /* Cancel and Pause are same in terms of cleaning up FD resources*/
+	fd->Cancel();
 	return true;
 }
 
@@ -105,7 +105,9 @@ bool fd_action_state_head_get_response_await_action_error_state_error (efsm_t *e
 bool fd_action_state_head_get_response_await_action_finished_state_fd_connect_in_progress (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
+	int file_size = fd->file_size;
 	fd->CleanupDnloadResources();
+	fd->file_size = file_size;
 	fd->FileDownloadConnectServer();
 	return true;
 }

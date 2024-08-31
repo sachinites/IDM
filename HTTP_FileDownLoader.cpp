@@ -8,11 +8,14 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <errno.h>
+#include <iostream>
 
 #include "EventFSM/fsm.h"
 #include "FileDownLoader.h"
 #include "FileDownloaderStates.h"
 
+static std::string protocol_delimiter = "://";
+static std::string path_delimiter = "/";
 
 HTTP_FD::HTTP_FD(std::string url) {
 
@@ -23,9 +26,15 @@ HTTP_FD::HTTP_FD(std::string url) {
     this->file_size = 0;
     this->low_byte = 0;
     this->high_byte = 0;
-    /* From URL, derive the server name and file path */
-    this->server_name = "mirror2.internetdownloadmanager.com";
-    this->file_path = "/idman642build20.exe";
+
+    // url = "http://mirror2.internetdownloadmanager.com/idman642build20.exe";
+    size_t protocol_pos = url.find(protocol_delimiter);
+    size_t server_start_pos = protocol_pos + protocol_delimiter.length();
+    size_t path_start_pos = url.find(path_delimiter, server_start_pos);
+    this->server_name = url.substr(server_start_pos, path_start_pos - server_start_pos); // "mirror2.internetdownloadmanager.com";
+    this->file_path = url.substr(path_start_pos);   // "/idman642build20.exe";
+    printf ("Constructor : Server = %s   File-Path = %s\n", 
+        this->server_name.c_str(), this->file_path.c_str());   
     this->fsm = NULL;
     this->connector_thread = NULL;
     this->downloader_thread = NULL;
@@ -58,6 +67,7 @@ server_head_connect_fn (void *arg) {
     
         server = gethostbyname(fd->server_name.c_str());
         if (server == NULL) {
+            printf ("Failed to resolve host-name : %s\n", fd->server_name.c_str()); 
             efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
             return NULL;
         }
@@ -108,8 +118,15 @@ HTTP_FD::HeadConnectServer( ) {
 static void * 
 http_send_head_request (void *arg) {
 
+    char head_request[1024];
+
 	FD *fd = (FD *)arg;
-	char *head_request = "HEAD /idman642build20.exe HTTP/1.1\r\nHost: mirror2.internetdownloadmanager.com\r\n\r\n";
+	
+    snprintf (head_request, sizeof (head_request), 
+        "HEAD %s HTTP/1.1\r\n"
+        "Host: %s\r\n\r\n", 
+        fd->file_path.c_str(), fd->server_name.c_str());
+
 	int n = write (fd->sockfd, head_request, strlen(head_request));
 	if (n < 0) {
 		efsm_fire_event (fd->fsm, DNLOAD_EVENT_LOST_CONNECTION);
@@ -125,6 +142,12 @@ http_send_head_request (void *arg) {
 	}
 
 	printf ("\nHead Response: %s\n", read_buffer);
+
+    if (strstr (read_buffer, "HTTP/1.1 200 OK") == NULL) {
+        efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
+        free (read_buffer);
+        return NULL;
+    }
 
     char *content_length_str = strstr(read_buffer, "Content-Length:");
 
@@ -166,9 +189,18 @@ HTTP_FD::FileDownloadConnectServer() {
 static void * 
 http_file_download_thread_fn (void *arg) {
 
+    char get_request[1024];
+
     HTTP_FD *fd = (HTTP_FD *)arg;
 
-    char *get_request = "GET /idman642build20.exe HTTP/1.1\r\nHost: mirror2.internetdownloadmanager.com\r\n\r\n";
+    snprintf(get_request, sizeof (get_request), 
+        "GET %s HTTP/1.1\r\n"
+        "Host: %s\r\n"
+        "Range : bytes=%d-%d\r\n"
+        "Connection: close\r\n"
+        "\r\n", 
+        fd->file_path.c_str(), fd->server_name.c_str(),
+        fd->current_byte, fd->file_size);
 
     int n = write (fd->sockfd, get_request, strlen(get_request));
 
@@ -177,7 +209,9 @@ http_file_download_thread_fn (void *arg) {
         return NULL;
     }
 
-    FILE *fp = fopen ("idman642build20.exe", "wb");
+    char file_name[64];
+    sscanf (fd->file_path.c_str(), "/%s", file_name);
+    FILE *fp = fopen (file_name, "wb");
 
     if (fp == NULL) {
         efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
@@ -190,9 +224,9 @@ http_file_download_thread_fn (void *arg) {
 
         n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE);
         if (n < 0) {
-            efsm_fire_event (fd->fsm, DNLOAD_EVENT_LOST_CONNECTION);
             fclose (fp);
             free(read_buffer);
+            efsm_fire_event (fd->fsm, DNLOAD_EVENT_LOST_CONNECTION);
             return NULL;
         }
 
@@ -201,13 +235,15 @@ http_file_download_thread_fn (void *arg) {
         if (header_end_marker == NULL) {
             efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
             fclose (fp);
-            free(read_buffer);            
+            free(read_buffer); 
             return NULL;
         }
 
         int header_end = header_end_marker - read_buffer + 4;   // End of headers
         fwrite(read_buffer + header_end, 1, n - header_end, fp);
         fd->current_byte += n - header_end;
+        printf ("Downloading ... \n");
+        fd->ProgressBar();
     }
 
     /* Move the FD to the end of the file*/
@@ -216,13 +252,24 @@ http_file_download_thread_fn (void *arg) {
     while ((n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE)) > 0) {
         fwrite (read_buffer, 1, n, fp);
         fd->current_byte += n;
+        fd->ProgressBar();
+        if (fd->current_byte == fd->file_size) {
+            printf ("\n");
+            break;
+        }
     }
 
     fclose (fp);
-    free(read_buffer);
+    free (read_buffer);
+
+    if (n < 0) {
+        printf ("\nError : File Download aborted, errno = %d\n", errno);
+        efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
+        return NULL;
+    }
 
     if (fd->current_byte != fd->file_size) {
-        printf ("File Size Downloaded : %d, Actual file size : %d\n", 
+        printf ("\nError : File Size Downloaded : %d, Actual file size : %d\n", 
             fd->current_byte, fd->file_size); 
         efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
         return NULL;
@@ -291,7 +338,7 @@ void
 HTTP_FD::Cancel () {
 
     this->CleanupDnloadResources();
-    remove ("idman642build20.exe");
+    remove (this->file_path.c_str());
 }
 
 void 
@@ -321,4 +368,12 @@ HTTP_FD::Pause() {
     //this->file_size = 0;
     //this->low_byte = 0;
     //this->high_byte = 0;
+}
+
+void 
+HTTP_FD::ProgressBar () {
+
+    int i = (int )((this->current_byte * 100 ) / this->file_size);
+    std:: string progress = std::to_string(i) + "% " + "[" + std::string(i, '*') + std::string(100-i, ' ') + "] " + std::to_string(i) + "%";
+    std::cout << "\r\033[F"  << "\n" << progress << std::flush;
 }

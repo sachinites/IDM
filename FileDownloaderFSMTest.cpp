@@ -8,11 +8,15 @@
 extern efsm_t *
 file_downloader_new_efsm () ;
 
+/* 
+ Ex :  ./exe  http://mirror2.internetdownloadmanager.com/idman642build20.exe
+*/
 int
 main (int argc, char **argv) {
 
     /* Create a File Downloader Instance*/
-    FD *fd = new HTTP_FD("");
+    //FD *fd = new HTTP_FD("http://mirror2.internetdownloadmanager.com/idman642build20.exe");
+    FD *fd = new HTTP_FD(argv[1]);
 
     /* Create FSM instance which will drive our FD instance state machine*/
     efsm_t *efsm = file_downloader_new_efsm();

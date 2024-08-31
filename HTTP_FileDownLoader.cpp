@@ -231,7 +231,8 @@ http_file_download_thread_fn (void *arg) {
     }
 
     char file_name[64];
-    sscanf (fd->file_path.c_str(), "/%s", file_name);
+    sscanf (fd->file_path.c_str(), "/%s_%d", file_name, &fd->low_byte);
+    snprintf (file_name + strlen(file_name), sizeof (file_name), "_%d", fd->low_byte);
     FILE *fp = fopen (file_name, "wb");
 
     if (fp == NULL) {
@@ -386,7 +387,10 @@ void
 HTTP_FD::Cancel () {
 
     this->CleanupDnloadResources();
-    remove (this->file_path.c_str());
+    char file_name[64];
+    sscanf (this->file_path.c_str(), "/%s_%d", file_name, &this->low_byte);
+    snprintf (file_name + strlen(file_name), sizeof (file_name), "_%d", this->low_byte);
+    remove (file_name);
 }
 
 void 

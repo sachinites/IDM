@@ -22,7 +22,7 @@ HTTP_FD::HTTP_FD(std::string url) {
     this->sockfd = -1;
     this->read_buffer = (char *)calloc (1, HTTP_READ_BUFFER_SIZE);
     this->read_buffer_size = HTTP_READ_BUFFER_SIZE;
-    this->current_byte = 0;
+    this->bytes_downloaded = 0;
     this->file_size = 0;
     this->low_byte = 0;
     this->high_byte = 0;
@@ -124,7 +124,9 @@ http_send_head_request (void *arg) {
 	
     snprintf (head_request, sizeof (head_request), 
         "HEAD %s HTTP/1.1\r\n"
-        "Host: %s\r\n\r\n", 
+        "Host: %s\r\n"
+        "Connection: close\r\n"
+        "\r\n",
         fd->file_path.c_str(), fd->server_name.c_str());
 
 	int n = write (fd->sockfd, head_request, strlen(head_request));
@@ -189,18 +191,37 @@ HTTP_FD::FileDownloadConnectServer() {
 static void * 
 http_file_download_thread_fn (void *arg) {
 
+    int file_size;
+    bool partial_req = false;
     char get_request[1024];
-
     HTTP_FD *fd = (HTTP_FD *)arg;
 
-    snprintf(get_request, sizeof (get_request), 
-        "GET %s HTTP/1.1\r\n"
-        "Host: %s\r\n"
-        "Range : bytes=%d-%d\r\n"
-        "Connection: close\r\n"
-        "\r\n", 
-        fd->file_path.c_str(), fd->server_name.c_str(),
-        fd->current_byte, fd->file_size);
+    /* Range not specified, download the entire file */
+    if (fd->low_byte == 0 && fd->high_byte == 0) {
+
+        snprintf(get_request, sizeof (get_request), 
+            "GET %s HTTP/1.1\r\n"
+            "Host: %s\r\n"
+            "Connection: close\r\n"
+            "\r\n", 
+            fd->file_path.c_str(), fd->server_name.c_str());
+            file_size = fd->file_size;
+    }
+    else
+    {
+        snprintf(get_request, sizeof(get_request),
+                 "GET %s HTTP/1.1\r\n"
+                 "Host: %s\r\n"
+                 "Range: bytes=%d-%d\r\n"
+                 "Connection: close\r\n"
+                 "\r\n",
+                 fd->file_path.c_str(), fd->server_name.c_str(),
+                 fd->low_byte, fd->high_byte);
+        file_size = fd->high_byte - fd->low_byte + 1;
+        partial_req = true;
+    }
+
+    printf ("HTTP GET REQUEST SENT: \n%s", get_request);
 
     int n = write (fd->sockfd, get_request, strlen(get_request));
 
@@ -220,7 +241,7 @@ http_file_download_thread_fn (void *arg) {
 
     char *read_buffer = (char *)calloc (1, HTTP_READ_BUFFER_SIZE);
 
-    if (fd->current_byte == 0) {
+    if (fd->bytes_downloaded == 0) {
 
         n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE);
         if (n < 0) {
@@ -240,8 +261,37 @@ http_file_download_thread_fn (void *arg) {
         }
 
         int header_end = header_end_marker - read_buffer + 4;   // End of headers
+
+        printf ("HTTP GET RESPONSE:\n\n");
+        fwrite (read_buffer, 1, header_end, stdout);
+
+        /* Analyzing GET Resonse*/
+        char *response = (char *)calloc (1, header_end + 1);
+        memcpy (response, read_buffer, header_end);
+        response[header_end] = '\0';
+
+        if (strstr (response, "HTTP/1.1 400 Bad Request")) {
+            fclose (fp);
+            free(read_buffer); 
+            free (response);
+            efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
+            return NULL;
+        }
+
+        if (partial_req) {
+            if (strstr (response, "HTTP/1.1 206 Partial Content") == NULL ) {
+                printf ("Error : Server Do not Support Partial Content\n");
+                fclose (fp);
+                free(read_buffer); 
+                free (response);
+                efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
+                return NULL;                
+            }
+         }
+        free (response);
+
         fwrite(read_buffer + header_end, 1, n - header_end, fp);
-        fd->current_byte += n - header_end;
+        fd->bytes_downloaded += n - header_end;
         printf ("Downloading ... \n");
         fd->ProgressBar();
     }
@@ -251,9 +301,9 @@ http_file_download_thread_fn (void *arg) {
 
     while ((n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE)) > 0) {
         fwrite (read_buffer, 1, n, fp);
-        fd->current_byte += n;
+        fd->bytes_downloaded += n;
         fd->ProgressBar();
-        if (fd->current_byte == fd->file_size) {
+        if (fd->bytes_downloaded == file_size) {
             printf ("\n");
             break;
         }
@@ -268,9 +318,9 @@ http_file_download_thread_fn (void *arg) {
         return NULL;
     }
 
-    if (fd->current_byte != fd->file_size) {
+    if (fd->bytes_downloaded != file_size) {
         printf ("\nError : File Size Downloaded : %d, Actual file size : %d\n", 
-            fd->current_byte, fd->file_size); 
+            fd->bytes_downloaded, file_size); 
         efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
         return NULL;
     }
@@ -322,10 +372,8 @@ HTTP_FD::CleanupDnloadResources() {
     }
 
     this->read_buffer_size = 0;
-    this->current_byte = 0;
+    this->bytes_downloaded = 0;
     this->file_size = 0;
-    this->low_byte = 0;
-    this->high_byte = 0;
 }
 
 void
@@ -373,7 +421,9 @@ HTTP_FD::Pause() {
 void 
 HTTP_FD::ProgressBar () {
 
-    int i = (int )((this->current_byte * 100 ) / this->file_size);
+    int file_size = (this->low_byte == 0 && this->high_byte == 0) ? this->file_size :   \
+                            (this->high_byte - this->low_byte + 1 );
+    int i = (int )((this->bytes_downloaded * 100 ) /file_size);
     std:: string progress = std::to_string(i) + "% " + "[" + std::string(i, '*') + std::string(100-i, ' ') + "] " + std::to_string(i) + "%";
     std::cout << "\r\033[F"  << "\n" << progress << std::flush;
 }

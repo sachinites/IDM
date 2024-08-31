@@ -17,7 +17,7 @@ class FD {
         int sockfd;
         char *read_buffer;
         int read_buffer_size;
-        int current_byte;
+        int bytes_downloaded;
         int file_size;
         int low_byte;
         int high_byte;
@@ -35,6 +35,7 @@ class FD {
         virtual void Cancel () = 0;
         virtual void Pause () = 0;
         virtual void ProgressBar() = 0;
+        void SetByteRange (int, int);
 };
 
 #define HTTP_READ_BUFFER_SIZE   4096

@@ -17,6 +17,7 @@ main (int argc, char **argv) {
     /* Create a File Downloader Instance*/
     //FD *fd = new HTTP_FD("http://mirror2.internetdownloadmanager.com/idman642build20.exe");
     FD *fd = new HTTP_FD(argv[1]);
+    fd->SetByteRange (100, 3000);
 
     /* Create FSM instance which will drive our FD instance state machine*/
     efsm_t *efsm = file_downloader_new_efsm();

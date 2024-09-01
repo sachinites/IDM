@@ -31,4 +31,7 @@ void clear_screen();
 // Clear from the cursor to the end of the line
 void clear_line();
 
+/* Move Cursor to start of current line */
+void move_cursor_to_start () ;
+
 #endif // CURSOR_H

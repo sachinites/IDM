@@ -14,27 +14,29 @@
 #include "FileDownLoader.h"
 #include "FileDownloaderStates.h"
 
+#define printf(a, ...) 
+
 static std::string protocol_delimiter = "://";
 static std::string path_delimiter = "/";
 
 HTTP_FD::HTTP_FD(std::string url) {
 
     this->sockfd = -1;
-    this->read_buffer = (char *)calloc (1, HTTP_READ_BUFFER_SIZE);
-    this->read_buffer_size = HTTP_READ_BUFFER_SIZE;
+    pthread_mutex_init (&this->bytes_downloaded_mutex, NULL);
     this->bytes_downloaded = 0;
+
     this->file_size = 0;
     this->low_byte = 0;
     this->high_byte = 0;
-
+    this->flags = 0;
     // url = "http://mirror2.internetdownloadmanager.com/idman642build20.exe";
     size_t protocol_pos = url.find(protocol_delimiter);
     size_t server_start_pos = protocol_pos + protocol_delimiter.length();
     size_t path_start_pos = url.find(path_delimiter, server_start_pos);
     this->server_name = url.substr(server_start_pos, path_start_pos - server_start_pos); // "mirror2.internetdownloadmanager.com";
     this->file_path = url.substr(path_start_pos);   // "/idman642build20.exe";
-    printf ("Constructor : Server = %s   File-Path = %s\n", 
-        this->server_name.c_str(), this->file_path.c_str());   
+    //printf ("Constructor : Server = %s   File-Path = %s\n", 
+     //   this->server_name.c_str(), this->file_path.c_str());   
     this->fsm = NULL;
     this->connector_thread = NULL;
     this->downloader_thread = NULL;
@@ -43,10 +45,10 @@ HTTP_FD::HTTP_FD(std::string url) {
 HTTP_FD::~HTTP_FD() {
 
     assert (this->sockfd == -1);
-    assert (this->read_buffer == NULL);
     assert (this->connector_thread == NULL);    
     assert (this->downloader_thread == NULL);
-    printf ("HTTP FD Deleted\n");
+    pthread_mutex_destroy (&this->bytes_downloaded_mutex);
+    //printf ("HTTP FD Deleted\n");
 }
 
 
@@ -143,7 +145,7 @@ http_send_head_request (void *arg) {
 		return NULL;
 	}
 
-	printf ("\nHead Response: %s\n", read_buffer);
+	//printf ("\nHead Response: %s\n", read_buffer);
 
     if (strstr (read_buffer, "HTTP/1.1 200 OK") == NULL) {
         efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
@@ -221,7 +223,7 @@ http_file_download_thread_fn (void *arg) {
         partial_req = true;
     }
 
-    printf ("HTTP GET REQUEST SENT: \n%s", get_request);
+   // printf ("HTTP GET REQUEST SENT: \n%s", get_request);
 
     int n = write (fd->sockfd, get_request, strlen(get_request));
 
@@ -241,7 +243,7 @@ http_file_download_thread_fn (void *arg) {
     }
 
     char *read_buffer = (char *)calloc (1, HTTP_READ_BUFFER_SIZE);
-
+    
     if (fd->bytes_downloaded == 0) {
 
         n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE);
@@ -263,8 +265,8 @@ http_file_download_thread_fn (void *arg) {
 
         int header_end = header_end_marker - read_buffer + 4;   // End of headers
 
-        printf ("HTTP GET RESPONSE:\n\n");
-        fwrite (read_buffer, 1, header_end, stdout);
+        //printf ("HTTP GET RESPONSE:\n\n");
+        //fwrite (read_buffer, 1, header_end, stdout);
 
         /* Analyzing GET Resonse*/
         char *response = (char *)calloc (1, header_end + 1);
@@ -292,8 +294,9 @@ http_file_download_thread_fn (void *arg) {
         free (response);
 
         fwrite(read_buffer + header_end, 1, n - header_end, fp);
+        pthread_mutex_lock (&fd->bytes_downloaded_mutex);
         fd->bytes_downloaded += n - header_end;
-        printf ("Downloading ... \n");
+        pthread_mutex_unlock (&fd->bytes_downloaded_mutex);
         fd->ProgressBar();
     }
 
@@ -302,10 +305,12 @@ http_file_download_thread_fn (void *arg) {
 
     while ((n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE)) > 0) {
         fwrite (read_buffer, 1, n, fp);
+        pthread_mutex_lock (&fd->bytes_downloaded_mutex);
         fd->bytes_downloaded += n;
+        pthread_mutex_unlock (&fd->bytes_downloaded_mutex);
         fd->ProgressBar();
         if (fd->bytes_downloaded == file_size) {
-            printf ("\n");
+            //printf ("\n");
             break;
         }
     }
@@ -367,12 +372,6 @@ HTTP_FD::CleanupDnloadResources() {
         this->downloader_thread = NULL;
     }
 
-    if (this->read_buffer) {
-        free(this->read_buffer);
-        this->read_buffer = NULL;
-    }
-
-    this->read_buffer_size = 0;
     this->bytes_downloaded = 0;
     this->file_size = 0;
 }
@@ -380,7 +379,7 @@ HTTP_FD::CleanupDnloadResources() {
 void
 HTTP_FD::AssembleChunks() {
 
-    printf ("%s() Called ...\n", __FUNCTION__);
+    //printf ("%s() Called ...\n", __FUNCTION__);
 }
 
 void
@@ -407,13 +406,6 @@ HTTP_FD::Pause() {
         this->sockfd = -1;
     }
 
-    if (this->read_buffer) {
-        free(this->read_buffer);
-        this->read_buffer = NULL;
-    }
-
-    this->read_buffer_size = 0;
-
     // preserve below stats 
 
     //this->current_byte = 0;
@@ -425,9 +417,11 @@ HTTP_FD::Pause() {
 void 
 HTTP_FD::ProgressBar () {
 
-    int file_size = (this->low_byte == 0 && this->high_byte == 0) ? this->file_size :   \
-                            (this->high_byte - this->low_byte + 1 );
-    int i = (int )((this->bytes_downloaded * 100 ) /file_size);
-    std:: string progress = std::to_string(i) + "% " + "[" + std::string(i, '*') + std::string(100-i, ' ') + "] " + std::to_string(i) + "%";
-    std::cout << "\r\033[F"  << "\n" << progress << std::flush;
+    if (this->flags & FD_REPORT_PROGRESS_ON_CONSOLE) {
+        int file_size = this->GetFileSize();
+        int i = (int )((this->bytes_downloaded * 100 ) /file_size);
+        std:: string progress = std::to_string(i) + "% " + "[" + std::string(i, '*') + std::string(100-i, ' ') + "] " + std::to_string(i) + "%";
+        std::cout << "\r\033[F"  << "\n" << progress << std::flush;
+    }
+
 }

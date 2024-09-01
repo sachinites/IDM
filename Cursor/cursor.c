@@ -21,6 +21,11 @@ void move_cursor_left(int n) {
     printf("\033[%dD", n);
 }
 
+// Mobve cursor to beginning of currnet line 
+void move_cursor_to_start () {
+    printf ("\033[G");
+}
+
 // Move cursor to specific position (row, col)
 void move_cursor_to(int row, int col) {
     printf("\033[%d;%dH", row, col);

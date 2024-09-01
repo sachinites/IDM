@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include "fsm.h"
 
+#define printf(a, ...) 
+
 static void
 efsm_state_exit (efsm_t *efsm) {
 

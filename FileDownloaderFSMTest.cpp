@@ -5,9 +5,11 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
+#include <iostream>
 #include "EventFSM/fsm.h"
 #include "FileDownloaderStates.h"
 #include "FileDownLoader.h"
+#include "Cursor/cursor.h"
 
 extern efsm_t *
 file_downloader_new_efsm () ;
@@ -16,6 +18,7 @@ static std::string protocol_delimiter = "://";
 static std::string path_delimiter = "/";
 
 #define MB (1024 * 1024 )
+#define CHUNK_SIZE  2    // chunk size in MB
 
 bool 
 multithreaded_http_downloader (std::string url) {
@@ -118,8 +121,8 @@ multithreaded_http_downloader (std::string url) {
    /* Now, Launch Multiple HTTP File downloaders */
 
    /* Number of threads to be launched. Each thread is responsible to download 2MB of file*/
-    n = file_size / (2 * MB );   
-    int remaining_bytes = file_size % (2 * MB);
+    n = file_size / (CHUNK_SIZE * MB );   
+    int remaining_bytes = file_size % (CHUNK_SIZE * MB);
 
     int i ;
 
@@ -128,11 +131,11 @@ multithreaded_http_downloader (std::string url) {
     for (i = 0; i < n - 1; i++) {
 
         fd_array[i] = new HTTP_FD (url);
-        fd_array[i]->SetByteRange (i * 2 * MB,  ((i + 1) * 2 * MB) - 1);
+        fd_array[i]->SetByteRange (i * CHUNK_SIZE * MB,  ((i + 1) * CHUNK_SIZE * MB) - 1);
     }
 
     fd_array[n - 1] = new HTTP_FD (url);
-    fd_array[n - 1]->SetByteRange ( (n - 1) * 2 * MB,  (n * 2 * MB) + remaining_bytes - 1);
+    fd_array[n - 1]->SetByteRange ( (n - 1) * CHUNK_SIZE * MB,  (n * CHUNK_SIZE * MB) + remaining_bytes - 1);
 
     efsm_t **efsm_array = (efsm_t **) calloc (n, sizeof (efsm_t *));
     
@@ -145,6 +148,69 @@ multithreaded_http_downloader (std::string url) {
         efsm_fire_event(efsm_array[i], DNLOAD_EVENT_START);
     }
 
+    /* Pole All the FileDownloaders of their status : once per second */
+    FD *fd; int j;
+    bool cancel ;
+    std::string progress;
+    int *bytes_downloaded = (int *)calloc (n, sizeof (int));
+
+     printf ("Downloading ....\n\r");
+
+    save_cursor_position();
+
+    while (true) {
+
+        cancel = true;
+
+        // Lock mutexes and fetch the bytes_downloaded values
+        for (int i = 0; i < n; i++) {
+
+            fd = fd_array[i];
+            pthread_mutex_lock(&fd->bytes_downloaded_mutex);
+            bytes_downloaded[i] = fd->bytes_downloaded;
+            pthread_mutex_unlock(&fd->bytes_downloaded_mutex);
+        }
+
+        // Update progress for each chunk
+        for (int i = 0; i < n; i++) {
+
+            j = (int )((bytes_downloaded[i] * 100 ) /fd_array[i]->GetFileSize());
+
+            progress = "chunk: " + std::to_string(i) + " " + std::to_string(j) + "% " + "[" + std::string(j, '*') + std::string(100-j, ' ') + "] " + std::to_string(j) + "%";
+            clear_line();
+            printf ("%s\r", progress.c_str());
+            fflush(stdout);
+            move_cursor_down(1);
+            move_cursor_to_start () ;
+
+            if (j != 100) cancel = false;
+        }
+
+        if (cancel) break;
+
+        restore_cursor_position();
+        usleep(500000);
+    }
+
+    /* Cleanup Everything */
+    efsm_t *efsm;
+
+    for (i = 0 ; i < n; i++) {
+
+        fd = fd_array[i];
+        efsm = efsm_array[i];
+
+        fd->CleanupDnloadResources();
+        delete fd;
+        efsm->user_data = NULL;
+        efsm_destroy(efsm);
+    }
+
+    free (fd_array);
+    free(efsm_array);
+    free (bytes_downloaded);
+    printf ("\n Download Done !\n");
+    exit(0);
     return true;
 }
 
@@ -164,7 +230,8 @@ main (int argc, char **argv) {
     /* Create a File Downloader Instance*/
     //FD *fd = new HTTP_FD("http://mirror2.internetdownloadmanager.com/idman642build20.exe");
     FD *fd = new HTTP_FD(argv[1]);
-    fd->SetByteRange (100, 3000);
+    //fd->SetByteRange (100, 3000);
+    fd->flags |= FD_REPORT_PROGRESS_ON_CONSOLE;
 
     /* Create FSM instance which will drive our FD instance state machine*/
     efsm_t *efsm = file_downloader_new_efsm();

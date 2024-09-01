@@ -5,6 +5,8 @@
 #include "FileDownloaderStates.h" 
 #include "FileDownLoaderFSMActions.h"
 
+#define printf(a, ...) 
+
 /* Create FilwDownloader States*/
 static efsm_state_t file_downloader_states[] = {
 

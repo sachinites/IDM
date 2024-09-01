@@ -1,6 +1,7 @@
 rm -f EventFSM/*.o
 rm -f *.o
 rm -f *exe
+rm -f Cursor/*.o
 
 # compile the FSM library
 g++ -g -c EventFSM/fsm.cpp -o EventFSM/fsm.o -fpermissive
@@ -13,6 +14,9 @@ g++ -g -c FileDownLoaderFSMActions.cpp -o FileDownLoaderFSMActions.o
 g++ -g -c FileDownLoader.cpp -o FileDownLoader.o -fpermissive
 g++ -g -c HTTP_FileDownLoader.cpp -o HTTP_FileDownLoader.o -fpermissive
 
+#Cursor handling files 
+g++ -g -c Cursor/cursor.c -o Cursor/cursor.o -fpermissive
+
 # Make Executable
 g++ -g -c FileDownloaderFSMTest.cpp -o FileDownloaderFSMTest.o -fpermissive
 g++ -g EventFSM/fsm.o \
@@ -20,4 +24,5 @@ g++ -g EventFSM/fsm.o \
             FileDownLoaderFSMActions.o \
             FileDownLoader.o \
             HTTP_FileDownLoader.o \
+            Cursor/cursor.o \
             FileDownloaderFSMTest.o -o exe -lrt -lpthread

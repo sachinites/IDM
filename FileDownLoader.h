@@ -4,6 +4,8 @@
 #include <string>
 #include <pthread.h>
 
+#define FD_REPORT_PROGRESS_ON_CONSOLE  1 
+
 typedef struct efsm_ efsm_t;
 
 class FD {
@@ -15,12 +17,12 @@ class FD {
         virtual ~FD();
 
         int sockfd;
-        char *read_buffer;
-        int read_buffer_size;
-        int bytes_downloaded;
+        pthread_mutex_t bytes_downloaded_mutex;
+        int bytes_downloaded; // if you take it atomic int, then no need of mutex
         int file_size;
         int low_byte;
         int high_byte;
+        int flags;
         std::string server_name;
         std::string file_path;
         efsm_t *fsm;
@@ -36,6 +38,7 @@ class FD {
         virtual void Pause () = 0;
         virtual void ProgressBar() = 0;
         void SetByteRange (int, int);
+        int GetFileSize();
 };
 
 #define HTTP_READ_BUFFER_SIZE   4096

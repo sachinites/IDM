@@ -220,8 +220,9 @@ http_file_download_thread_fn (void *arg) {
                  fd->file_path.c_str(), fd->server_name.c_str(),
                  fd->low_byte, fd->high_byte);
         file_size = fd->high_byte - fd->low_byte + 1;
-        partial_req = true;
     }
+
+    if (fd->flags & FD_DNLOAD_PARTIAL_REQ) partial_req = true;
 
    // printf ("HTTP GET REQUEST SENT: \n%s", get_request);
 
@@ -232,15 +233,19 @@ http_file_download_thread_fn (void *arg) {
         return NULL;
     }
 
-    char file_name[64];
-    sscanf (fd->file_path.c_str(), "/%s_%d", file_name, &fd->low_byte);
-    snprintf (file_name + strlen(file_name), sizeof (file_name), "_%d", fd->low_byte);
-    FILE *fp = fopen (file_name, "wb");
+    const char *temp = strrchr(fd->file_path.c_str(), '/');
+    const char *file_name = temp ? temp + 1 : fd->file_path.c_str();
+    FILE *fp = NULL;
 
-    if (fp == NULL) {
-        efsm_fire_event (fd->fsm, DNLOAD_EVENT_ERROR);
+    if (partial_req) fp = fopen (file_name, "r+b");
+    else fp = fopen (file_name, "wb");
+
+    if (!fp) {
+        efsm_fire_event(fd->fsm, DNLOAD_EVENT_ERROR);
         return NULL;
     }
+
+    fseek (fp, 0, fd->low_byte);
 
     char *read_buffer = (char *)calloc (1, HTTP_READ_BUFFER_SIZE);
     
@@ -295,13 +300,13 @@ http_file_download_thread_fn (void *arg) {
 
         fwrite(read_buffer + header_end, 1, n - header_end, fp);
         pthread_mutex_lock (&fd->bytes_downloaded_mutex);
-        fd->bytes_downloaded += n - header_end;
+        fd->bytes_downloaded += (n - header_end);
         pthread_mutex_unlock (&fd->bytes_downloaded_mutex);
         fd->ProgressBar();
     }
 
     /* Move the FD to the end of the file*/
-    fseek (fp, 0, SEEK_END);
+    fseek (fp, 0, fd->low_byte + fd->bytes_downloaded);
 
     while ((n = read (fd->sockfd, read_buffer, HTTP_READ_BUFFER_SIZE)) > 0) {
         fwrite (read_buffer, 1, n, fp);
@@ -372,46 +377,36 @@ HTTP_FD::CleanupDnloadResources() {
         this->downloader_thread = NULL;
     }
 
-    this->bytes_downloaded = 0;
-    this->file_size = 0;
-}
+    if (! (this->flags & FD_DNLOAD_PARTIAL_REQ)) {
 
-void
-HTTP_FD::AssembleChunks() {
-
-    //printf ("%s() Called ...\n", __FUNCTION__);
-}
-
-void
-HTTP_FD::Cancel () {
-
-    this->CleanupDnloadResources();
-    char file_name[64];
-    sscanf (this->file_path.c_str(), "/%s_%d", file_name, &this->low_byte);
-    snprintf (file_name + strlen(file_name), sizeof (file_name), "_%d", this->low_byte);
-    remove (file_name);
+        const char *temp = strrchr(file_path.c_str(), '/');
+        const char *file_name = temp ? temp + 1 : file_path.c_str();
+        remove (file_name);
+    }
 }
 
 void 
 HTTP_FD::Pause() {
-
-    assert (this->downloader_thread);
-    pthread_cancel(*this->downloader_thread);
-    pthread_join(*this->downloader_thread, NULL);
-    free(this->downloader_thread);
-    this->downloader_thread = NULL;
 
     if (this->sockfd != -1) {
         close (this->sockfd);
         this->sockfd = -1;
     }
 
-    // preserve below stats 
+    if (this->connector_thread) {
+        pthread_cancel(*this->connector_thread);
+        pthread_join(*this->connector_thread, NULL);
+        free(this->connector_thread);
+        this->connector_thread = NULL;
+    }
 
-    //this->current_byte = 0;
-    //this->file_size = 0;
-    //this->low_byte = 0;
-    //this->high_byte = 0;
+    if (this->downloader_thread) {
+        pthread_cancel(*this->downloader_thread);
+        pthread_join(*this->downloader_thread, NULL);
+        free(this->downloader_thread);
+        this->downloader_thread = NULL;
+    }
+    
 }
 
 void 
@@ -424,4 +419,11 @@ HTTP_FD::ProgressBar () {
         std::cout << "\r\033[F"  << "\n" << progress << std::flush;
     }
 
+}
+
+void 
+HTTP_FD::FDReset () {
+
+    this->CleanupDnloadResources();
+    this->bytes_downloaded = 0;
 }

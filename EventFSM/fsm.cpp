@@ -68,7 +68,7 @@ efsm_execute (efsm_t *efsm, int event) {
     if (efsm->event_print)
         printf ("Executing Event %s", efsm->event_print(event));
     else
-	    printf ("Eecuting Event %d", event);
+	    printf ("Executing Event %d", event);
 
     if (efsm->state_print) 
         printf (" on state %s\nß", efsm->state_print(efsm->current_state->id));

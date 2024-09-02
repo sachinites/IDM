@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #define FD_REPORT_PROGRESS_ON_CONSOLE  1 
+#define FD_DNLOAD_PARTIAL_REQ   2
 
 typedef struct efsm_ efsm_t;
 
@@ -33,9 +34,8 @@ class FD {
         virtual void FileDownloadConnectServer() = 0;
         virtual void FileDownload() = 0;
         virtual void CleanupDnloadResources() = 0;
-        virtual void AssembleChunks() = 0;
-        virtual void Cancel () = 0;
         virtual void Pause () = 0;
+        virtual void FDReset() = 0;
         virtual void ProgressBar() = 0;
         void SetByteRange (int, int);
         int GetFileSize();
@@ -60,8 +60,7 @@ class HTTP_FD : public FD {
         virtual void FileDownloadConnectServer() final;
         virtual void FileDownload() final;
         virtual void CleanupDnloadResources() final;
-        virtual void AssembleChunks() final;
-        virtual void Cancel () final;
+        virtual void FDReset() final;
         virtual void Pause () final;
         virtual void ProgressBar() final;
 } ;

@@ -29,7 +29,7 @@ multithreaded_http_downloader (std::string url) {
     std::string server_name = url.substr(server_start_pos, path_start_pos - server_start_pos); 
     std::string file_path = url.substr(path_start_pos);
 
-    printf ("Constructor : Server = %s   File-Path = %s\n",  
+    printf ("Server = %s ,   File-Path = %s\n",  
         server_name.c_str(), file_path.c_str());   
     
     /* Checking if the server supports partial file downloads*/
@@ -61,9 +61,7 @@ multithreaded_http_downloader (std::string url) {
         close(sockfd);
         return false;
     }
-
-    printf ("Connection Successful, Sending HTTP HEAD Request : \n");
-
+    
     char head_request[1024];
 
     snprintf (head_request, sizeof (head_request), 
@@ -117,6 +115,23 @@ multithreaded_http_downloader (std::string url) {
 
     printf ("File Size is : %d\n", file_size);
     close(sockfd);
+
+    /* Create an Empty file now*/
+    const char *temp = strrchr(file_path.c_str(), '/');
+    const char *file_name = temp ? temp + 1 : file_path.c_str();
+    
+    /* Delete the file if already present*/
+    remove (file_name);
+
+    FILE *fp = fopen (file_name, "wb");
+    int ffd = fileno (fp);
+    
+    if (ftruncate (ffd, file_size) < 0 ) {
+        printf ("Error : Failed to Create a file on Disk, errno = %d\n", errno);
+        close (ffd);
+        fclose (fp);
+        exit(0);
+    }
 
    /* Now, Launch Multiple HTTP File downloaders */
 
@@ -209,6 +224,8 @@ multithreaded_http_downloader (std::string url) {
     free (fd_array);
     free(efsm_array);
     free (bytes_downloaded);
+    close (ffd);
+    fclose (fp);
     printf ("\n Download Done !\n");
     exit(0);
     return true;

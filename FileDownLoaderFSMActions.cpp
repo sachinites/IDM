@@ -20,14 +20,14 @@ bool fd_action_state_init_action_start_state_head_connect_in_progress (efsm_t *e
 bool fd_action_state_head_connect_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
     return true;
 }
 
 bool fd_action_state_head_connect_in_progress_action_pause_state_head_connection_failed (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
@@ -63,7 +63,7 @@ bool fd_action_state_head_connect_in_progress_action_connect_failed_state_head_c
 bool fd_action_state_head_connected_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }
@@ -78,7 +78,7 @@ bool fd_action_state_head_connected_action_start_state_head_get_response_await (
 bool fd_action_state_head_connection_failed_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }
@@ -99,7 +99,7 @@ bool fd_action_state_head_get_response_await_action_error_state_error (efsm_t *e
 
 	/* Head Response from the server is not appropriate*/
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }
@@ -125,7 +125,7 @@ bool fd_action_state_head_get_response_await_action_lost_connection_state_head_c
 bool fd_action_state_fd_connect_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
@@ -139,7 +139,7 @@ bool fd_action_state_fd_connect_in_progress_action_pause_state_init (efsm_t *efs
 bool fd_action_state_fd_connect_in_progress_action_error_state_error (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }
@@ -166,7 +166,7 @@ bool fd_action_state_fd_connect_in_progress_action_failed_state_fd_connection_fa
 bool fd_action_state_fd_connected_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
@@ -180,14 +180,14 @@ bool fd_action_state_fd_connected_action_start_state_fd_in_progress (efsm_t *efs
 bool fd_action_state_fd_connection_failed_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
 bool fd_action_state_fd_connection_failed_action_error_state_error (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
@@ -202,7 +202,7 @@ bool fd_action_state_fd_connection_failed_action_reconnect_state_fd_connect_in_p
 bool fd_action_state_fd_in_progress_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	return true;
 }
 
@@ -216,7 +216,7 @@ bool fd_action_state_fd_in_progress_action_pause_state_fd_suspended (efsm_t *efs
 bool fd_action_state_fd_in_progress_action_error_state_error (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }
@@ -224,7 +224,6 @@ bool fd_action_state_fd_in_progress_action_error_state_error (efsm_t *efsm) {
 bool fd_action_state_fd_in_progress_action_finished_state_fd_finished (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->AssembleChunks();
 	close (fd->sockfd);
 	fd->sockfd = -1;
 	assert (fd->downloader_thread);
@@ -253,7 +252,7 @@ bool fd_action_state_fd_in_progress_action_lost_connection_state_fd_connection_f
 bool fd_action_state_fd_suspended_action_cancel_state_cancelled (efsm_t *efsm) {
 
 	FD *fd = (FD *)efsm_get_user_data(efsm);
-	fd->Cancel();
+	fd->CleanupDnloadResources();
 	//delete fd;
 	return true;
 }

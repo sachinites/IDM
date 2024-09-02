@@ -18,6 +18,11 @@ FD::SetByteRange (int low, int high) {
     this->high_byte = high;
 
     printf ("Download Range : [%d - %d]\n", low, high);
+
+    if (low || high) {
+        this->flags |= FD_DNLOAD_PARTIAL_REQ;
+    }
+    
 }
 
 int
